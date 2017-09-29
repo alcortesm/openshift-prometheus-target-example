@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"strconv"
 )
@@ -33,6 +34,16 @@ func getPort() (uint16, error) {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	log.Println("request:", r.URL.Path)
-	fmt.Fprintf(w, "%s", r.URL.Path[1:])
+	alsoDumpBody := true
+	dump, err := httputil.DumpRequest(r, alsoDumpBody)
+	if err != nil {
+		http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
+		log.Printf("cannot process request: %v: cannot dump request: %v\n", r.URL.Path, err)
+		return
+	}
+
+	if _, err := fmt.Fprintf(w, "Dump of your request:\n\n%s", dump); err != nil {
+		log.Printf("cannot process request: %v: cannot write response: %v\n", r.URL.Path, err)
+	}
+	log.Println("successfully processed request:", r.URL.Path)
 }
