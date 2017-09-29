@@ -2,8 +2,8 @@
 docker-image: http-echo
 	docker build . -t http-echo:smallest
 
-http-echo: $(wildcard cmd/http-echo/**/*)
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' ./cmd/http-echo
+http-echo: $(wildcard **/*.go)
+	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o $@ .
 
 .PHONY: clean
 clean:
