@@ -1,0 +1,10 @@
+global:
+  scrape_interval:     15s
+  external_labels:
+    monitor: 'openshift-prometheus-example-monitor'
+
+scrape_configs:
+  - job_name: 'openshift-prometheus-example'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['openshift-prometheus-target-example-alcortesm-tutorial.193b.starter-ca-central-1.openshiftapps.com:80']
