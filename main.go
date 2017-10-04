@@ -11,6 +11,8 @@ import (
 
 const defaultPort = 8080
 
+var nonMetricRequestsCount int
+
 func main() {
 	port, err := getPort()
 	if err != nil {
@@ -35,6 +37,7 @@ func getPort() (uint16, error) {
 }
 
 func defaultHandler(w http.ResponseWriter, r *http.Request) {
+	nonMetricRequestsCount++
 	alsoDumpBody := true
 	dump, err := httputil.DumpRequest(r, alsoDumpBody)
 	if err != nil {
@@ -50,7 +53,7 @@ func defaultHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func metricsHandler(w http.ResponseWriter, r *http.Request) {
-	if _, err := fmt.Fprint(w, "TODO add some metrics\n"); err != nil {
+	if _, err := fmt.Fprintf(w, "Non metric requests count: %v\n", nonMetricRequestsCount); err != nil {
 		log.Printf("metrics handler: cannot process request: %v: cannot write response: %v\n", r.URL.Path, err)
 	}
 	log.Println("mstrics handler: successfully processed request:", r.URL.Path)
