@@ -17,7 +17,8 @@ func main() {
 		log.Fatal(err)
 	}
 	listenAddr := fmt.Sprintf(":%d", port)
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/", defaultHandler)
+	http.HandleFunc("/metrics", metricsHandler)
 	http.ListenAndServe(listenAddr, nil)
 }
 
@@ -33,17 +34,24 @@ func getPort() (uint16, error) {
 	return uint16(n), nil
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func defaultHandler(w http.ResponseWriter, r *http.Request) {
 	alsoDumpBody := true
 	dump, err := httputil.DumpRequest(r, alsoDumpBody)
 	if err != nil {
 		http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
-		log.Printf("cannot process request: %v: cannot dump request: %v\n", r.URL.Path, err)
+		log.Printf("default handler: cannot process request: %v: cannot dump request: %v\n", r.URL.Path, err)
 		return
 	}
 
 	if _, err := fmt.Fprintf(w, "Dump of your request:\n\n%s", dump); err != nil {
-		log.Printf("cannot process request: %v: cannot write response: %v\n", r.URL.Path, err)
+		log.Printf("default handler: cannot process request: %v: cannot write response: %v\n", r.URL.Path, err)
 	}
-	log.Println("successfully processed request:", r.URL.Path)
+	log.Println("default handler: successfully processed request:", r.URL.Path)
+}
+
+func metricsHandler(w http.ResponseWriter, r *http.Request) {
+	if _, err := fmt.Fprint(w, "TODO add some metrics\n"); err != nil {
+		log.Printf("metrics handler: cannot process request: %v: cannot write response: %v\n", r.URL.Path, err)
+	}
+	log.Println("mstrics handler: successfully processed request:", r.URL.Path)
 }

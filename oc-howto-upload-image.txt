@@ -1,0 +1,138 @@
+OpenShift doesn't have a Go builder image yet, so you can not build an image
+from source.
+
+The alternative is to create the image myself.  But the OpenShift Online
+3 starter account does not allow for the docker build strategy.  Meaning that
+oc will not be able to create the image from the Dockerfile in the repository.
+
+The solution is to create the image myself and upload it to the OpenShift
+docker registry associated with my starter cluster.
+
+```
+; # create the docker image
+; make docker-image
+docker build . -t http-echo:smallest
+Sending build context to Docker daemon   6.27MB
+Step 1/5 : FROM scratch
+ ---> 
+Step 2/5 : COPY http-echo http-echo
+ ---> 04f55f81b420
+Step 3/5 : EXPOSE 8080
+ ---> Running in 1fcb7627cd74
+ ---> 4a2a3779512e
+Removing intermediate container 1fcb7627cd74
+Step 4/5 : USER 10001
+ ---> Running in 10bf3312f605
+ ---> 7df2cc570c2a
+Removing intermediate container 10bf3312f605
+Step 5/5 : CMD ./http-echo
+ ---> Running in ed96d3e7f346
+ ---> 90fe9b1fa8b2
+Removing intermediate container ed96d3e7f346
+Successfully built 90fe9b1fa8b2
+Successfully tagged http-echo:smallest
+;
+; # tag the image with the name it is going to have in the registry
+; docker inspect http-echo:smallest --format='{{.Id}}'
+sha256:90fe9b1fa8b2c1e6f9d2df37780a4dd804ec4077e9a72f3137d3ca634f9148e0
+; docker tag 90fe9b1fa8b2 registry.starter-ca-central-1.openshift.com/alcortesm-tutorial/openshift-prometheus-target-example:latest
+```
+
+Now you want to push the image to your private docker registry at openshift.
+You need to provide your openshift credentials to the docker client first of all as the registry requires authentication:
+
+```
+; oc whoami -t | docker login registry.starter-ca-central-1.openshift.com -u (oc whoami) --password-stdin
+Login Succeeded
+```
+
+You only need to do this once per session.
+
+Now push the image to the remote docker registry:
+
+```
+; # push the image to my cluster's docker registry
+; docker push registry.starter-ca-central-1.openshift.com/alcortesm-tutorial/openshift-prometheus-target-example:latest
+The push refers to a repository [registry.starter-ca-central-1.openshift.com/alcortesm-tutorial/openshift-prometheus-target-example]
+664957c15b84: Pushed 
+latest: digest: sha256:439d1cc3ae0b06cc999619c6954a85a3c814d5e0d3a8950df27b4d7f89fdec8b size: 528
+```
+
+Now the image is in the registry and can be accessed by oc:
+```
+; oc get is
+NAME                                  DOCKER REPO                                                                               TAGS      UPDATED
+golang                                docker-registry.default.svc:5000/alcortesm-tutorial/golang                                latest    5 hours ago
+nodejs-mongodb-example                docker-registry.default.svc:5000/alcortesm-tutorial/nodejs-mongodb-example                latest    13 hours ago
+openshift-prometheus-target-example   docker-registry.default.svc:5000/alcortesm-tutorial/openshift-prometheus-target-example   latest    41 minutes ago
+```
+
+You can now launch an app using the pull address of the image:
+```
+; oc new-app --docker-image docker-registry.default.svc:5000/alcortesm-tutorial/openshift-prometheus-target-example
+--> Found Docker image 90fe9b1 (24 minutes old) from docker-registry.default.svc:5000 for "docker-registry.default.svc:5000/alcortesm-tutorial/openshift-prometheus-target-example"
+
+    * An image stream will be created as "openshift-prometheus-target-example:latest" that will track this image
+    * This image will be deployed in deployment config "openshift-prometheus-target-example"
+    * Port 8080/tcp will be load balanced by service "openshift-prometheus-target-example"
+      * Other containers can access this service through the hostname "openshift-prometheus-target-example"
+
+--> Creating resources ...
+    error: imagestreams.image.openshift.io "openshift-prometheus-target-example" already exists
+    deploymentconfig "openshift-prometheus-target-example" created
+    service "openshift-prometheus-target-example" created
+--> Failed
+;
+; oc status
+In project alcortesm-tutorial on server https://api.starter-ca-central-1.openshift.com:443
+
+[...]
+
+http://openshift-prometheus-target-example-alcortesm-tutorial.193b.starter-ca-central-1.openshiftapps.com to pod port 8080-tcp (svc/openshift-prometheus-target-example)
+  dc/openshift-prometheus-target-example deploys istag/openshift-prometheus-target-example:latest 
+    deployment #1 deployed 25 minutes ago - 1 pod
+
+[...]
+
+```
+
+And expose it's port:
+```
+; oc expose service/openshift-prometheus-target-example
+route "openshift-prometheus-target-example" exposed
+;
+; oc describe route/openshift-prometheus-target-example
+Name:			openshift-prometheus-target-example
+Namespace:		alcortesm-tutorial
+Created:		27 minutes ago
+Labels:			app=openshift-prometheus-target-example
+Annotations:		openshift.io/host.generated=true
+Requested Host:		openshift-prometheus-target-example-alcortesm-tutorial.193b.starter-ca-central-1.openshiftapps.com
+			  exposed on router router 27 minutes ago
+Path:			<none>
+TLS Termination:	<none>
+Insecure Policy:	<none>
+Endpoint Port:		8080-tcp
+
+Service:	openshift-prometheus-target-example
+Weight:		100 (100%)
+Endpoints:	10.130.49.74:8080
+```
+
+Now you can point your browser to openshift-prometheus-target-example-alcortesm-tutorial.193b.starter-ca-central-1.openshiftapps.com, port 80 and
+your app will answer, and see its logs:
+```
+; oc logs -f dc/openshift-prometheus-target-example
+2017/09/29 18:39:16 successfully processed request: /
+2017/09/29 18:39:17 successfully processed request: /favicon.ico
+2017/09/29 18:39:45 successfully processed request: /
+2017/09/29 18:39:45 successfully processed request: /favicon.ico
+2017/09/29 18:41:59 successfully processed request: /
+2017/09/29 18:42:00 successfully processed request: /favicon.ico
+2017/09/29 18:42:06 successfully processed request: /
+2017/09/29 18:42:06 successfully processed request: /favicon.ico
+2017/09/29 19:03:51 successfully processed request: /
+2017/09/29 19:03:51 successfully processed request: /favicon.ico
+2017/09/29 19:04:16 successfully processed request: /foo
+2017/09/29 19:04:17 successfully processed request: /favicon.ico
+```
